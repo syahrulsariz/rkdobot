@@ -19,8 +19,10 @@ export const FREE_COMMANDS = new Set([
 
 export const ADMIN_COMMANDS = new Set([
   '!botoff', '!boton', '!listadmin', '!add', '!remove', '!listuser',
-  '!ban', '!unban', '!listban', '!hapusaktif', '!resetshift',
+  '!ban', '!unban', '!listban',
   '!masuk', '!keluar', '!tarik', '!setor', '!ceksaldo',
+  '!listsaldo', '!ceksaldouser', '!addsaldo', '!tambahsaldo',
+  '!kurangsaldo', '!minsaldo', '!hapussaldo', '!resetsaldo',
 ]);
 
 export function getCommandPrice(command) {
