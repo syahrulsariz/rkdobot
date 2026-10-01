@@ -1,13 +1,14 @@
 // config/hargaCommand.js
 
-// Harga default semua command user. Ubah angka ini kalau mau.
+// Harga default semua command user.
 export const DEFAULT_COMMAND_PRICE = 100;
 
-// Harga khusus per command. Contoh: '!reqpt': 500
+// Harga khusus per command.
+// Contoh:
+//   '!dailycek': 100,
+//   '!reqpt': 500,
+//   '!kirimperingkat': 1000,
 export const COMMAND_PRICES = {
-  // '!dailycek': 100,
-  // '!reqpt': 500,
-  // '!kirimperingkat': 1000,
 };
 
 export const FREE_COMMANDS = new Set([
@@ -17,12 +18,27 @@ export const FREE_COMMANDS = new Set([
   '!myid',
 ]);
 
+// Command yang hanya boleh dijalankan admin.
+// Semua command di sini gratis.
 export const ADMIN_COMMANDS = new Set([
-  '!botoff', '!boton', '!listadmin', '!add', '!remove', '!listuser',
-  '!ban', '!unban', '!listban',
-  '!masuk', '!keluar', '!tarik', '!setor', '!ceksaldo',
-  '!listsaldo', '!ceksaldouser', '!addsaldo', '!tambahsaldo',
-  '!kurangsaldo', '!minsaldo', '!hapussaldo', '!resetsaldo',
+  '!botoff',
+  '!boton',
+  '!ban',
+  '!unban',
+  '!listban',
+  '!masuk',
+  '!keluar',
+  '!tarik',
+  '!setor',
+  '!ceksaldo',
+  '!listsaldo',
+  '!ceksaldouser',
+  '!addsaldo',
+  '!tambahsaldo',
+  '!kurangsaldo',
+  '!minsaldo',
+  '!hapussaldo',
+  '!resetsaldo',
 ]);
 
 export function getCommandPrice(command) {
