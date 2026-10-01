@@ -569,7 +569,7 @@ if (normalizedText.toLowerCase() === '!listban') {
           // Wajib pakai prefix "!"
           const cmdWithPrefix = cmdLower.startsWith('!') ? cmdLower : '!' + cmdLower;
           
-          return textLower.startsWith(cmdWithPrefix);
+          return textLower === cmdWithPrefix || textLower.startsWith(cmdWithPrefix + ' ');
         });
         
         if (matchedCommand) {
@@ -587,7 +587,7 @@ if (normalizedText.toLowerCase() === '!listban') {
           // Semua command admin wajib berasal dari admin.
           if (isAdminCommand && !isAdminUser) {
             await sock.sendMessage(from, {
-              text: '❌ *Akses Ditolak*\\n\\nCommand ini khusus admin.'
+              text: '❌ *Akses Ditolak*\n\nCommand ini khusus admin.'
             }, { quoted: msg });
             break;
           }
