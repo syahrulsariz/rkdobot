@@ -214,8 +214,7 @@ function isCommand(text) {
   }
 
   // Check admin commands (wajib prefix !)
-  const adminCommands = ['!botoff', '!boton', '!listadmin',
-  '!myid', '!ban', '!unban', '!listban'];
+  const adminCommands = ['!botoff', '!boton', '!listadmin', '!myid', '!ban', '!unban', '!listban'];
   return adminCommands.some(cmd => lowerText.startsWith(cmd));
 }
 
