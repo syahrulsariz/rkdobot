@@ -357,11 +357,13 @@ if (isCommand(text)) {
 
       // ─── Multi-step keuangan (pilih kategori / sumber) ───
       // Harus dicek SEBELUM filter isCommand, karena reply "A"/"B" bukan command
-      try {
-        const handledPending = await handlePendingKeuangan(sock, msg, queue, ADMIN_LIST);
-        if (handledPending) return;
-      } catch (e) {
-        originalConsoleError('   ❌ Error pending keuangan:', e.message);
+      if (isAdmin(sender)) {
+        try {
+          const handledPending = await handlePendingKeuangan(sock, msg, queue, ADMIN_LIST);
+          if (handledPending) return;
+        } catch (e) {
+          originalConsoleError('   ❌ Error pending keuangan:', e.message);
+        }
       }
       
       // ✅ PERBAIKAN: Skip HANYA jika bukan command sama sekali (wajib prefix !)
