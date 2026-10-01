@@ -59,5 +59,5 @@ export function potongSaldo(phone, amount) {
   return { success: true, saldo: data[normalized].saldo, deducted: nominal };
 }
 
-export function refundSaldo(phone, amount) { return tambahSaldo(phone, amount); }
+export function setSaldo(phone, amount) {\n  const normalized = normalizeSaldoPhone(phone);\n  const nominal = Number(amount);\n  if (!normalized) throw new Error('Nomor user tidak valid.');\n  if (!Number.isFinite(nominal) || nominal < 0) throw new Error('Nominal saldo tidak valid.');\n  const data = loadSaldo();\n  if (!data[normalized]) data[normalized] = { saldo: 0 };\n  data[normalized].saldo = nominal;\n  data[normalized].updatedAt = new Date().toISOString();\n  saveSaldo(data);\n  return nominal;\n}\n\nexport function refundSaldo(phone, amount) { return tambahSaldo(phone, amount); }
 export function formatRupiah(amount) { return 'Rp ' + Number(amount || 0).toLocaleString('id-ID'); }
