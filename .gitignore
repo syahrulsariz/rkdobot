@@ -1,0 +1,8 @@
+node_modules/
+.env
+.env.*
+auth_info_baileys/
+lid_map.json
+saldo.json
+whitelist.json
+*.log
