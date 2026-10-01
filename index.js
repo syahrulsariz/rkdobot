@@ -554,58 +554,6 @@ if (normalizedText.toLowerCase() === '!listban') {
         return;
       }
 
-      // ═══════════════════════════════════════════════════════════════
-// 🔒 WHITELIST CHECK
-// ═══════════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════════
-// 🔒 WHITELIST CHECK
-// ═══════════════════════════════════════════════════════════════════
-const isAddGrupCmd = normalizedText.toLowerCase().startsWith('!addgrup');
-const isTesCmd = normalizedText.toLowerCase() === '!tes';
-const isExtendCmd = normalizedText.toLowerCase().startsWith('!extend');
-const isCekAktifCmd = normalizedText.toLowerCase().startsWith('!cekaktif');
-const isShiftCmd = normalizedText.toLowerCase() === '!pagi' ||
-                    normalizedText.toLowerCase() === '!siang';
-
-if (!isAddGrupCmd && !isTesCmd && !isAdmin(sender) && !isWhitelisted(sender)) {
-  originalConsoleLog(`   🚫 Blocked: ${msg.pushName || 'Unknown'} (${sender})`);
-  return;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// ⏳ MASA AKTIF CHECK
-// ═══════════════════════════════════════════════════════════════════
-if (!isAddGrupCmd && !isTesCmd && !isExtendCmd && !isCekAktifCmd && !isAdmin(sender) && isExpired(sender)) {
-  originalConsoleLog(`   ⏳ Expired: ${msg.pushName || 'Unknown'} (${sender})`);
-  await sock.sendMessage(from, {
-    text: `⏳ *Masa Aktif Habis*\n\nNomor kamu sudah tidak memiliki masa aktif.\nSilakan gunakan perintah !extend untuk memperpanjang masa aktif.`
-  }, { quoted: msg });
-  return;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// 🕐 SHIFT CHECK (!pagi / !siang) - per user, reset tiap hari
-// ═══════════════════════════════════════════════════════════════════
-if (!isAddGrupCmd && !isTesCmd && !isShiftCmd && !isExtendCmd && !isCekAktifCmd && !isAdmin(sender)) {
-  const shiftStatus = checkShiftAccess(sender);
-
-  if (shiftStatus.status === 'not_set') {
-    originalConsoleLog(`   🕐 Shift belum dipilih: ${msg.pushName || 'Unknown'} (${sender})`);
-    await sock.sendMessage(from, {
-      text: `⚠️ *Pilih Jadwal Dulu*\n\nKetik *!pagi* atau *!siang* dulu sebelum pakai bot hari ini.\n\n🌅 !pagi → 06.00 - 16.00\n☀️ !siang → 13.00 - 22.30`
-    }, { quoted: msg });
-    return;
-  }
-
-  if (shiftStatus.status === 'outside_window') {
-    originalConsoleLog(`   🕐 Diluar jam shift (${shiftStatus.shift}): ${msg.pushName || 'Unknown'} (${sender})`);
-    await sock.sendMessage(from, {
-      text: `🚫 *Diluar Jam Aktif*\n\nMohon maaf, bot hanya di setting untuk penggunaan *${shiftStatus.shift}* hari ini.`
-    }, { quoted: msg });
-    return;
-  }
-}
-      
       // ═══════════════════════════════════════════════════════════
       // ⚡ COMMAND EXECUTION
       // ═══════════════════════════════════════════════════════════
@@ -636,6 +584,14 @@ if (!isAddGrupCmd && !isTesCmd && !isShiftCmd && !isExtendCmd && !isCekAktifCmd 
           const isAdminUser = isAdmin(sender);
           const isFree = FREE_COMMANDS.has(commandKey);
           const isAdminCommand = ADMIN_COMMANDS.has(commandKey);
+
+          // Semua command admin wajib berasal dari admin.
+          if (isAdminCommand && !isAdminUser) {
+            await sock.sendMessage(from, {
+              text: '❌ *Akses Ditolak*\\n\\nCommand ini khusus admin.'
+            }, { quoted: msg });
+            break;
+          }
           const price = (!isAdminUser && !isFree && !isAdminCommand) ? getCommandPrice(commandKey) : 0;
 
           let charged = false;
