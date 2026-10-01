@@ -64,6 +64,7 @@ import topupCommand from './commands/topup.js';
 import kodecabang from './commands/kodecabang.js';
 import handleVoidCommand from './commands/void.js';
 import handleAktifSesiCommand from './commands/aktifsesi.js';
+import adminSaldoCommand from './commands/adminSaldo.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // 🛡️ FILTER LOG BAILEYS
@@ -138,7 +139,7 @@ const commands = [
   closingReport, salesreport, ptreport, kidsreport,
   peringkatReport, akumulasiReport, allreport, databaseReport, salesToday, salesUpdate, handleReqHapusKelas, handleReqHapusInstruktur, blastCommand,
   autodeleteCommand, tesCommand, menuCommand, saldoCommand, topupCommand, kodecabang,
-  handleVoidCommand, handleAktifSesiCommand
+  handleVoidCommand, handleAktifSesiCommand, adminSaldoCommand
 ];
 
 // ═══════════════════════════════════════════════════════════════════
