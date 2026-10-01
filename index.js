@@ -2,18 +2,9 @@ import { makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaile
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import queue from './utils/queue.js';
-import { 
-  recordSender, 
-  addToWhitelist, 
-  removeFromWhitelist, 
-  isWhitelisted, 
-  getWhitelistDisplay,
-  getLidByPhone,
-  getPhoneByLid,
-  normalizePhone,
-  isExpired,
-  removeActivePeriod
-} from './utils/lidMap.js';
+import { recordSender, getPhoneByLid } from './utils/lidMap.js';
+import { potongSaldo, refundSaldo, getSaldo, normalizeSaldoPhone, formatRupiah } from './utils/saldo.js';
+import { getCommandPrice, FREE_COMMANDS, ADMIN_COMMANDS } from './config/hargaCommand.js';
 import {
   banUser,
   unbanUser,
@@ -49,9 +40,7 @@ import handleReqHapusPt from './commands/hapuspt.js';
 import handleApvCommand from './commands/approve.js';
 import uptimeCommand from './commands/uptime.js';
 import buatpaketCommand from './commands/buatpaket.js';
-import { morningScheduler, nightScheduler, shiftReminderScheduler } from './scheduler/dailyScheduler.js';
-import shiftCommand from './commands/shift.js';
-import { checkShiftAccess, resetUserShift } from './utils/shiftMap.js';
+
 import handleReset from './commands/reset.js';
 import closingReport from './commands/rincianreport.js';
 import salesreport from './commands/salesreport.js';
@@ -69,14 +58,12 @@ import blastCommand from './commands/blast.js';
 import autodeleteCommand from './commands/autodelete.js';
 import { isAutoDeleteActive } from './utils/autoDeleteGroups.js';
 import tesCommand from './commands/tes.js';
-import aktifCommand from './commands/aktif.js';
 import menuCommand from './commands/menu.js';
-import extendCommand from './commands/extend.js';
-import cekaktifCommand from './commands/cekaktif.js';
+import saldoCommand from './commands/saldo.js';
+import topupCommand from './commands/topup.js';
 import kodecabang from './commands/kodecabang.js';
 import handleVoidCommand from './commands/void.js';
 import handleAktifSesiCommand from './commands/aktifsesi.js';
-import listaktifCommand from './commands/listaktif.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // 🛡️ FILTER LOG BAILEYS
@@ -150,8 +137,8 @@ const commands = [
   handleApvCommand, uptimeCommand, buatpaketCommand, handleReset,
   closingReport, salesreport, ptreport, kidsreport,
   peringkatReport, akumulasiReport, allreport, databaseReport, salesToday, salesUpdate, handleReqHapusKelas, handleReqHapusInstruktur, blastCommand,
-  autodeleteCommand, tesCommand, aktifCommand, menuCommand, extendCommand, cekaktifCommand, kodecabang,
-  shiftCommand, handleVoidCommand, handleAktifSesiCommand, listaktifCommand
+  autodeleteCommand, tesCommand, menuCommand, saldoCommand, topupCommand, kodecabang,
+  handleVoidCommand, handleAktifSesiCommand
 ];
 
 // ═══════════════════════════════════════════════════════════════════
@@ -227,8 +214,7 @@ function isCommand(text) {
 
   // Check admin commands (wajib prefix !)
   const adminCommands = ['!botoff', '!boton', '!listadmin',
-  '!add', '!remove', '!listuser', '!myid', '!hapusaktif', '!resetshift',
-  '!ban', '!unban', '!listban'];
+  '!myid', '!ban', '!unban', '!listban'];
   return adminCommands.some(cmd => lowerText.startsWith(cmd));
 }
 
@@ -289,13 +275,7 @@ async function connectToWhatsApp() {
       originalConsoleLog('─'.repeat(50));
       originalConsoleLog('🎯 Menunggu command...\n');
 
-      // Start schedulers dengan delay
-      setTimeout(() => {
-        morningScheduler(sock);
-        nightScheduler(sock);
-        shiftReminderScheduler(sock);
-        originalConsoleLog('⏰ Scheduler aktif (Pagi, Malam & Shift Reminder)\n');
-      }, 10000);
+      originalConsoleLog('💳 Sistem saldo aktif — masa aktif & shift dinonaktifkan\n');
 
       // Send notification to admin
       try {
@@ -428,112 +408,6 @@ if (normalizedText.toLowerCase() === '!myid') {
   return;
 }
 
-// ─── !add ─────────────────────────────────────────────────────
-if (normalizedText.toLowerCase().startsWith('!add ')) {
-  if (!isAdmin(sender)) {
-    await sock.sendMessage(from, { text: '❌ Hanya admin yang bisa menambah whitelist.' }, { quoted: msg });
-    return;
-  }
-  const targetPhone = normalizedText.split(' ')[1]?.trim();
-  if (!targetPhone || !/^\d+$/.test(targetPhone.replace(/\+/g, ''))) {
-    await sock.sendMessage(from, { text: '❌ Format salah!\n\nContoh: `!add 6289677289925`' }, { quoted: msg });
-    return;
-  }
-  const result = addToWhitelist(targetPhone);
-  const lid = getLidByPhone(targetPhone);
-  if (result.success) {
-    await sock.sendMessage(from, {
-      text: `✅ *Berhasil ditambahkan!*\n\n` +
-            `📱 No HP: +${result.phone}\n` +
-            `🔑 LID: ${lid ? lid + '@lid' : '⏳ Belum terdeteksi\n_(akan otomatis tersimpan saat user kirim pesan)_'}`
-    }, { quoted: msg });
-    originalConsoleLog(`   ✅ Whitelist +ADD: ${result.phone} | LID: ${lid || 'pending'}`);
-  } else {
-    await sock.sendMessage(from, { text: `⚠️ User +${normalizePhone(targetPhone)} sudah ada di whitelist.` }, { quoted: msg });
-  }
-  return;
-}
-
-// ─── !remove ──────────────────────────────────────────────────
-if (normalizedText.toLowerCase().startsWith('!remove ')) {
-  if (!isAdmin(sender)) {
-    await sock.sendMessage(from, { text: '❌ Hanya admin yang bisa menghapus whitelist.' }, { quoted: msg });
-    return;
-  }
-  const targetPhone = normalizedText.split(' ')[1]?.trim();
-  if (!targetPhone) {
-    await sock.sendMessage(from, { text: '❌ Format salah!\n\nContoh: `!remove 6289677289925`' }, { quoted: msg });
-    return;
-  }
-  const result = removeFromWhitelist(targetPhone);
-  if (result.success) {
-    await sock.sendMessage(from, {
-      text: `✅ *Berhasil dihapus!*\n\n📱 No HP: +${result.phone}\n⛔ User tidak bisa lagi menggunakan bot.`
-    }, { quoted: msg });
-    originalConsoleLog(`   ✅ Whitelist -REMOVE: ${result.phone}`);
-  } else {
-    await sock.sendMessage(from, { text: `⚠️ User tidak ditemukan di whitelist.` }, { quoted: msg });
-  }
-  return;
-}
-
-// ─── !hapusaktif ──────────────────────────────────────────────
-if (normalizedText.toLowerCase().startsWith('!hapusaktif ')) {
-  if (!isAdmin(sender)) {
-    await sock.sendMessage(from, { text: '❌ Hanya admin yang bisa mengurangi masa aktif.' }, { quoted: msg });
-    return;
-  }
-  const parts = normalizedText.split(' ');
-  const targetPhone = parts[1]?.trim();
-  const daysArg = parts[2]?.trim();
-
-  if (!targetPhone || !daysArg) {
-    await sock.sendMessage(from, { text: '❌ Format salah!\n\nContoh: `!hapusaktif 089677289925 2`\n(mengurangi 2 hari masa aktif)' }, { quoted: msg });
-    return;
-  }
-
-  const result = removeActivePeriod(targetPhone, daysArg);
-
-  if (result.success) {
-    await sock.sendMessage(from, {
-      text: `✅ *Masa aktif dikurangi!*\n\n📱 No HP: +${result.phone}\n➖ Dikurangi: ${result.removedDays} hari\n⏳ Sisa masa aktif: ${result.remainingDays} hari`
-    }, { quoted: msg });
-    originalConsoleLog(`   ✅ Masa aktif dikurangi ${result.removedDays} hari: ${result.phone}`);
-  } else if (result.reason === 'insufficient') {
-    await sock.sendMessage(from, {
-      text: `⚠️ Gagal! Sisa masa aktif +${normalizePhone(targetPhone)} cuma *${result.remainingDays} hari*, gak bisa dikurangin ${daysArg} hari.`
-    }, { quoted: msg });
-  } else if (result.reason === 'invalid_days') {
-    await sock.sendMessage(from, { text: '❌ Jumlah hari harus angka positif.\n\nContoh: `!hapusaktif 089677289925 2`' }, { quoted: msg });
-  } else {
-    await sock.sendMessage(from, { text: `⚠️ User +${normalizePhone(targetPhone)} tidak punya masa aktif (belum !aktif / sudah expired).` }, { quoted: msg });
-  }
-  return;
-}
-
-// ─── !resetshift ──────────────────────────────────────────────
-if (normalizedText.toLowerCase().startsWith('!resetshift ')) {
-  if (!isAdmin(sender)) {
-    await sock.sendMessage(from, { text: '❌ Hanya admin yang bisa reset shift.' }, { quoted: msg });
-    return;
-  }
-  const targetPhone = normalizedText.split(' ')[1]?.trim();
-  if (!targetPhone) {
-    await sock.sendMessage(from, { text: '❌ Format salah!\n\nContoh: `!resetshift 6289677289925`' }, { quoted: msg });
-    return;
-  }
-  const result = resetUserShift(targetPhone);
-  if (result.success) {
-    await sock.sendMessage(from, {
-      text: `✅ *Shift direset!*\n\n📱 No HP: +${result.phone}\nUser bisa pilih ulang *!pagi* / *!siang* hari ini.`
-    }, { quoted: msg });
-    originalConsoleLog(`   ✅ Shift direset: ${result.phone}`);
-  } else {
-    await sock.sendMessage(from, { text: `⚠️ User +${normalizePhone(targetPhone)} belum pilih shift hari ini.` }, { quoted: msg });
-  }
-  return;
-}
-
 // ─── !ban ───────────────────────────────────────────────────────
 if (normalizedText.toLowerCase().startsWith('!ban ')) {
   if (!isAdmin(sender)) {
@@ -603,21 +477,6 @@ if (normalizedText.toLowerCase() === '!listban') {
     text: list.length > 0
       ? `🚫 *Daftar User Banned (${list.length})*\n\n${list.join('\n\n')}`
       : `📋 *Tidak ada user yang sedang dibanned saat ini.*`
-  }, { quoted: msg });
-  return;
-}
-
-// ─── !listuser ────────────────────────────────────────────────
-if (normalizedText.toLowerCase() === '!listuser') {
-  if (!isAdmin(sender)) {
-    await sock.sendMessage(from, { text: '❌ Hanya admin yang bisa melihat whitelist.' }, { quoted: msg });
-    return;
-  }
-  const list = getWhitelistDisplay();
-  await sock.sendMessage(from, {
-    text: list.length > 0
-      ? `📋 *Whitelist User (${list.length})*\n\n${list.join('\n\n')}`
-      : `📋 *Whitelist kosong*\n\nGunakan \`!add <nomor>\` untuk menambah user.`
   }, { quoted: msg });
   return;
 }
@@ -770,18 +629,61 @@ if (!isAddGrupCmd && !isTesCmd && !isShiftCmd && !isExtendCmd && !isCekAktifCmd 
           const prefix = getLogPrefix(isGroup, displayCmd.toUpperCase());
           originalConsoleLog(`${prefix} | User: ${senderName} (${senderNumber})${isGroup ? ` | Group: ${groupId}` : ''}`);
           
+          const commandKey = displayCmd.toLowerCase();
+          const isAdminUser = isAdmin(sender);
+          const isFree = FREE_COMMANDS.has(commandKey);
+          const isAdminCommand = ADMIN_COMMANDS.has(commandKey);
+          const price = (!isAdminUser && !isFree && !isAdminCommand) ? getCommandPrice(commandKey) : 0;
+
+          let charged = false;
+          let walletPhone = null;
+
+          if (price > 0) {
+            walletPhone = phoneRaw
+              ? normalizeSaldoPhone(phoneRaw)
+              : normalizeSaldoPhone(getPhoneByLid(lidRaw || '') || '');
+
+            if (!walletPhone) {
+              await sock.sendMessage(from, {
+                text: '❌ Nomor WhatsApp kamu belum bisa dikenali. Coba kirim pesan biasa dulu lalu ulangi command.'
+              }, { quoted: msg });
+              break;
+            }
+
+            const currentSaldo = getSaldo(walletPhone);
+            if (currentSaldo < price) {
+              await sock.sendMessage(from, {
+                text: `💳 *Saldo tidak cukup*\n\nHarga command: *${formatRupiah(price)}*\nSaldo kamu: *${formatRupiah(currentSaldo)}*\nKekurangan: *${formatRupiah(price - currentSaldo)}*\n\nGunakan *!topup 10k* untuk isi saldo.`
+              }, { quoted: msg });
+              break;
+            }
+
+            const deduction = potongSaldo(walletPhone, price);
+            if (!deduction.success) {
+              await sock.sendMessage(from, {
+                text: `❌ Gagal memotong saldo. Saldo kamu: *${formatRupiah(deduction.saldo)}*`
+              }, { quoted: msg });
+              break;
+            }
+
+            charged = true;
+            originalConsoleLog(`   💳 Saldo -${formatRupiah(price)} | Sisa ${formatRupiah(deduction.saldo)}`);
+          }
+
           try {
             await cmd.execute(sock, msg, queue, ADMIN_LIST);
             originalConsoleLog(`   ✅ Success`);
           } catch (error) {
+            if (charged && walletPhone) {
+              refundSaldo(walletPhone, price);
+              originalConsoleLog(`   ↩️ Saldo dikembalikan: ${formatRupiah(price)}`);
+            }
+
             originalConsoleLog(`   ❌ Error: ${error.message}`);
-            
             await sock.sendMessage(from, {
-              text: `❌ Terjadi kesalahan saat memproses command.\n\n` +
-                    `Error: ${error.message}`
+              text: `❌ Terjadi kesalahan saat memproses command.\n\nError: ${error.message}${charged ? '\n\n💳 Saldo dikembalikan karena command gagal.' : ''}`
             }, { quoted: msg });
           }
-          
           break;
         }
       }
